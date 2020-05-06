@@ -1469,10 +1469,10 @@ HACKY_IMPORT_BEGIN(GetSystemMetrics)
   hacky_printf("nIndex %" PRId32 "\n", stack[1]);
   switch(stack[1]) {
     case 0:
-      eax = 640; // Horizontal resolution
+      eax = 1024; // Horizontal resolution
       break;
     case 1:
-      eax = 480; // Vertical resolution
+      eax = 768; // Vertical resolution
       break;
     case 15:
       eax = 0; //FIXME
@@ -2064,8 +2064,8 @@ HACKY_COM_BEGIN(IDirectDraw4, 8)
     API(DDSURFACEDESC2)* desc = Memory(descAddress);
     desc->ddpfPixelFormat.dwFlags = API(DDPF_RGB);
     desc->ddpfPixelFormat.dwRGBBitCount = 16;
-    desc->dwWidth = 640;
-    desc->dwHeight = 480;
+    desc->dwWidth = 1024;
+    desc->dwHeight = 768;
     desc->lpSurface = 0x01010101;
     *(uint32_t*)Memory(esp) = descAddress; // API(DDSURFACEDESC2)*
 
@@ -4035,8 +4035,8 @@ int main(int argc, char* argv[]) {
   printf("-- Creating window\n");
   {
     bool fullscreen = false;
-    int w = 640;
-    int h = 480;
+    int w = 1024;
+    int h = 768;
 
     Uint32 style = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
     if (fullscreen) {
