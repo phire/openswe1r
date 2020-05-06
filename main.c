@@ -17,7 +17,6 @@
 #include "descriptor.h"
 #include "emulation.h"
 #include "exe.h"
-#include "renderer.h"
 
 //FIXME: Alternative for non-posix OS!
 #include <time.h>
@@ -31,6 +30,8 @@ static SDL_Window* sdlWindow;
 #include "com/d3d.h"
 #include "com/ddraw.h"
 #include "com/dinput.h"
+
+#include "hle/renderer.h"
 
 uint32_t callId = 0;
 

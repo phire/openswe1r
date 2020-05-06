@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "emulation.h"
+#include "../emulation.h"
 
 #pragma pack(push)
 
@@ -33,7 +33,7 @@ struct Mesh_Primitive {
     uint32_t  unk_20;
     struct {
         float u;
-        float v
+        float v;
     } uvOffset;
     float alpha;
     float red;

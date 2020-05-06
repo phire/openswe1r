@@ -4,8 +4,13 @@
 
 #include <unicorn/unicorn.h>
 
+extern "C" {
+
 #include "renderer.h"
-#include "emulation.h"
+#include "../emulation.h"
+
+}
+
 #include "sceneGraph.h"
 
 static Address renderSceneGraph_fixup;
@@ -101,32 +106,34 @@ void PrintSceneGraph(struct SceneGraphNode *node, int indent)
   }
 }
 
-void renderSceneGraphCallback(void* uc, Address address, void* user_data)
+void renderSceneGraphCallback(void* _uc, Address address, void* user_data)
 {
-    Address stackAddress;
-    uc_reg_read(uc, UC_X86_REG_ESP, &stackAddress);
-    uint32_t* stack = (uint32_t*)Memory(stackAddress);
+  uc_engine* uc = (uc_engine*)_uc;
 
-    uint32_t return_addr = stack[0];
+  Address stackAddress;
+  uc_reg_read(uc, UC_X86_REG_ESP, &stackAddress);
+  uint32_t* stack = (uint32_t*)Memory(stackAddress);
 
-    // Ignore non-root root calls
-    if (return_addr != 0x48f1f7)
-    {
-      printf("SceneGraph Hooked, Called from %x\n", return_addr);
+  uint32_t return_addr = stack[0];
 
-      struct SceneGraphNode *root = getSceneGraphNode(stack[1]);
-      PrintSceneGraph(root, 0);
-    }
+  // Ignore non-root root calls
+  if (return_addr != 0x48f1f7)
+  {
+    printf("SceneGraph Hooked, Called from %x\n", return_addr);
 
-    if (1) {
-      // Restore controlflow to render function
-      uc_reg_write(uc, UC_X86_REG_EIP, &renderSceneGraph_fixup);
-    } else {
-      // Force a return without doing work
-      stackAddress += 8;
-      uc_reg_write(uc, UC_X86_REG_ESP, &stackAddress);
-      uc_reg_write(uc, UC_X86_REG_EIP, &return_addr);
-    }
+    struct SceneGraphNode *root = getSceneGraphNode(stack[1]);
+    PrintSceneGraph(root, 0);
+  }
+
+  if (1) {
+    // Restore controlflow to render function
+    uc_reg_write(uc, UC_X86_REG_EIP, &renderSceneGraph_fixup);
+  } else {
+    // Force a return without doing work
+    stackAddress += 8;
+    uc_reg_write(uc, UC_X86_REG_ESP, &stackAddress);
+    uc_reg_write(uc, UC_X86_REG_EIP, &return_addr);
+  }
 }
 
 void InitRenderer() {
@@ -134,7 +141,7 @@ void InitRenderer() {
 
   Address halt = PatchHlt(0x48f180, &renderSceneGraph_fixup, 5);
 
-  uint8_t *code = Memory(renderSceneGraph_fixup);
+  uint8_t *code = (uint8_t*)Memory(renderSceneGraph_fixup);
   printf("Fixup: ");
 
   for(int i = 0; i < 12; i++)
