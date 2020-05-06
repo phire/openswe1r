@@ -350,6 +350,36 @@ Address CreateHlt() {
   return code_address;
 }
 
+Address PatchHlt(Address address, Address* fixup, size_t fixup_length) {
+  uint8_t* code = Memory(address);
+
+  // Create a fixup that returns control flow to the patched function
+  if (fixup != NULL)
+  {
+
+    *fixup = Allocate(fixup_length + 6);
+    uint8_t* fixup_code = Memory(*fixup);
+
+    // Copy any instructions we are overwriting
+    memcpy(fixup_code, code, fixup_length);
+    int i = fixup_length;
+
+    Address destAddress = address + fixup_length;
+    Address NextInstruction = (*fixup) + i + 5;
+    Address relAddress = destAddress - NextInstruction;
+
+    // Jump back to the original function
+    fixup_code[i++] = 0xE9; // Relative Jump
+    fixup_code[i++] = relAddress         & 0xff;
+    fixup_code[i++] = (relAddress >> 8)  & 0xff;
+    fixup_code[i++] = (relAddress >> 16) & 0xff;
+    fixup_code[i++] = (relAddress >> 24) & 0xff;
+  }
+
+  *code++ = 0xF4; // HLT
+  return address;
+}
+
 typedef struct {
   Address address;
   void(*callback)(void* uc, Address address, void* user_data);

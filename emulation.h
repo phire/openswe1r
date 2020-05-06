@@ -33,6 +33,7 @@ void* Memory(uint32_t address);
 // Hook API
 
 Address CreateHlt();
+Address PatchHlt(Address address, Address* fixup, size_t fixup_length);
 void AddHltHandler(Address address, void(*callback)(void* uc, Address address, void* user_data), void* user_data);
 Address CreateCallback(void* callback, void* user);
 
