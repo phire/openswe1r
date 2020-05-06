@@ -39,6 +39,8 @@ add_executable(openswe1r
 
   com/a3d.c
   com/dplay.c
+
+  renderer.c
 )
 
 # Determine version information

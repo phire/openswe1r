@@ -17,6 +17,7 @@
 #include "descriptor.h"
 #include "emulation.h"
 #include "exe.h"
+#include "renderer.h"
 
 //FIXME: Alternative for non-posix OS!
 #include <time.h>
@@ -4016,6 +4017,10 @@ void RunX86(Exe* exe) {
       *mappedSection = relocatedMappedSection;
     }
   }
+
+  // Todo: this is not a great place to be registering futher hooks
+  // But we can't hook game functions until the exe has been mapped into memory
+  InitRenderer();
 
   //FIXME: Schedule a virtual main-thread
   printf("Emulation starting\n");
