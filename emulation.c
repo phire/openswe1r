@@ -155,7 +155,11 @@ FIXME: type is one of
   int esp;
   uc_reg_read(uc, UC_X86_REG_ESP, &esp);
   for(int i = 0; i < 100; i++) {
-    printf("Stack [%d] = %X\n", i, *(uint32_t*)Memory(esp + i * 4));
+    uint32_t* stack = (uint32_t*)Memory(esp + i * 4);
+    if (stack)
+      printf("Stack [%d] = %X\n", i, *stack);
+    else
+      printf("Stack [%d] = <error>\n", i);
   }
 
   assert(false);
