@@ -5,13 +5,16 @@
 #include <unicorn/unicorn.h>
 
 extern "C" {
-
 #include "renderer.h"
 #include "../emulation.h"
-
 }
 
 #include "sceneGraph.h"
+#include "export_glTF.h"
+
+#include <array>
+
+static bool s_dumping = false;
 
 static Address renderSceneGraph_fixup;
 
@@ -21,8 +24,6 @@ struct SceneGraphNode * getSceneGraphNode(Address addr) {
 
 struct Mesh * getMesh(uint offset) {
   Address MeshPool = *(Address*)Memory(*(Address*)Memory(0xdeb110) + 4);
-  //struct Mesh** MeshPool_data = (struct Mesh**) Memory(MeshPool);
-  Address* all_meshes = (Address*)Memory(MeshPool);
   Address mesh_addr = MeshPool + offset * sizeof(struct Mesh);
   return (struct Mesh *) Memory(mesh_addr);
 }
@@ -58,6 +59,7 @@ void PrintDraw(char *prefix, struct Mesh* mesh)
 
   for (int i = 0; i < mesh->num_primitives; i++)
   {
+
     PrintPrimitive(prefix, getMeshPrimitive(mesh->primitives, i));
   }
 }
@@ -106,6 +108,82 @@ void PrintSceneGraph(struct SceneGraphNode *node, int indent)
   }
 }
 
+void dumpMesh(glTF_exporter& exporter, struct SceneGraphNode *node, struct Mesh* mesh) {
+
+  // Get vertex buffer
+  std::vector<float> vertices(mesh->num_vertices * 3);
+  float *vtx = (float*)Memory(mesh->vertexData_ptr);
+  memcpy(vertices.data(), vtx, mesh->num_vertices * sizeof(float) * 3);
+
+  json meshAttributes = exporter.uploadVerties(vertices);
+
+  // Get all primitives
+  std::vector<json> primitives;
+
+  for (int i=0; i < mesh->num_primitives; i++)
+  {
+    Mesh_Primitive* prim = getMeshPrimitive(mesh->primitives, i);
+
+    // Get indices
+    std::vector<uint32_t> indices(prim->indexCount);
+    uint32_t *index = (uint32_t*)Memory(prim->IndexData_ptr);
+    memcpy(indices.data(), index, prim->indexCount * sizeof(uint32_t));
+
+    for (auto &idx : indices)
+    {
+      if (idx >= mesh->num_vertices)
+      {
+        printf("Indices too high %i > %i\n", idx, mesh->num_vertices);
+        idx = 0;
+      }
+    }
+
+    primitives.push_back(exporter.uploadPrimitive(indices, meshAttributes));
+  }
+
+
+
+  uint32_t mesh_id = exporter.addMesh(mesh->this_offset, primitives);
+
+
+  // Convert transform matrix
+  std::array<float, 16> matrix;
+  matrix[0]  = node->baseTransformMatrix[0];
+  matrix[1]  = node->baseTransformMatrix[1];
+  matrix[2]  = node->baseTransformMatrix[2];
+  matrix[3]  = 0.0;
+  matrix[4]  = node->baseTransformMatrix[3];
+  matrix[5]  = node->baseTransformMatrix[4];
+  matrix[6]  = node->baseTransformMatrix[5];
+  matrix[7]  = 0.0;
+  matrix[8]  = node->baseTransformMatrix[6];
+  matrix[9]  = node->baseTransformMatrix[7];
+  matrix[10] = node->baseTransformMatrix[8];
+  matrix[11] = 0.0;
+  matrix[12] = node->baseTransformMatrix[9];
+  matrix[13] = node->baseTransformMatrix[10];
+  matrix[14] = node->baseTransformMatrix[11];
+  matrix[15] = 1.0;
+
+  exporter.addNode(mesh_id, matrix);
+}
+
+void dumpSceneGraph(glTF_exporter& exporter, struct SceneGraphNode *node)
+{
+  if (node->objectIndex > 0) {
+    dumpMesh(exporter, node, getMesh(node->objectIndex));
+  }
+
+  struct SceneGraphNode *child = getSceneGraphNode(node->firstChild);
+  for (int i = 0; i < node->numChildren; i++)
+  {
+    if (child != NULL) {
+      dumpSceneGraph(exporter, child);
+      child = getSceneGraphNode(child->nextSibling);
+    }
+  }
+}
+
 void renderSceneGraphCallback(void* _uc, Address address, void* user_data)
 {
   uc_engine* uc = (uc_engine*)_uc;
@@ -123,6 +201,13 @@ void renderSceneGraphCallback(void* _uc, Address address, void* user_data)
 
     struct SceneGraphNode *root = getSceneGraphNode(stack[1]);
     PrintSceneGraph(root, 0);
+    if (s_dumping)
+    {
+      glTF_exporter exporter;
+      dumpSceneGraph(exporter, root);
+      exporter.dump();
+      s_dumping = false;
+    }
   }
 
   if (1) {
@@ -152,4 +237,8 @@ void InitRenderer() {
   AddHltHandler(halt, renderSceneGraphCallback, 0);
 
   printf("Installed renderSceneGraph hook, fixup at %x\n", renderSceneGraph_fixup);
+}
+
+void Renderer_DumpFrame() {
+  s_dumping = true;
 }

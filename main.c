@@ -3419,6 +3419,11 @@ void UpdateKeyboardState() {
   keyboardState[API(DIK_RCONTROL)] = sdlState[SDL_SCANCODE_RCTRL] ? pressed : unpressed;
   keyboardState[API(DIK_LALT)] = sdlState[SDL_SCANCODE_LALT] ? pressed : unpressed;
   keyboardState[API(DIK_RALT)] = sdlState[SDL_SCANCODE_RALT] ? pressed : unpressed;
+
+  // Hacky way to dump frames on demand
+  if (sdlState[SDL_SCANCODE_F11]) {
+    Renderer_DumpFrame();
+  }
 }
 
 // IDirectInputDeviceA -> STDMETHOD(GetDeviceState)(THIS_ DWORD,LPVOID) PURE; // 9

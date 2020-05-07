@@ -39,8 +39,6 @@ add_executable(openswe1r
 
   com/a3d.c
   com/dplay.c
-
-  hle/renderer.cpp
 )
 
 # Determine version information
@@ -107,3 +105,6 @@ if(MSVC)
   # Silence MSVC CRT security warnings
   target_compile_definitions(openswe1r PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
+
+add_subdirectory(hle)
+target_link_libraries(openswe1r racer_hle)

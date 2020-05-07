@@ -5,3 +5,5 @@
 #pragma once
 
 void InitRenderer();
+
+void Renderer_DumpFrame();

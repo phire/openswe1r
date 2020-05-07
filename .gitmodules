@@ -1,0 +1,3 @@
+[submodule "hle/json"]
+	path = hle/json
+	url = git@github.com:nlohmann/json.git
