@@ -13,14 +13,11 @@ extern "C" {
 #include "export_glTF.h"
 
 #include <array>
+#include <cmath>
 
 static bool s_dumping = false;
 
 static Address renderSceneGraph_fixup;
-
-struct SceneGraphNode * getSceneGraphNode(Address addr) {
-  return (struct SceneGraphNode*) Memory(addr);
-}
 
 struct Mesh * getMesh(uint offset) {
   Address MeshPool = *(Address*)Memory(*(Address*)Memory(0xdeb110) + 4);
@@ -64,7 +61,7 @@ void PrintDraw(char *prefix, struct Mesh* mesh)
   }
 }
 
-void PrintSceneGraph(struct SceneGraphNode *node, int indent)
+void PrintSceneGraph(Ptr<SceneGraphNode> node, int indent)
 {
   char buf[30];
   int idx = 0;
@@ -98,17 +95,39 @@ void PrintSceneGraph(struct SceneGraphNode *node, int indent)
   if (node->numChildren == 0)
     return;
   printf("%s%i children:\n", buf, node->numChildren);
-  struct SceneGraphNode *child = getSceneGraphNode(node->firstChild);
+  Ptr<SceneGraphNode> child = node->firstChild;
   for (int i = 0; i < node->numChildren; i++)
   {
     if (child != NULL) {
       PrintSceneGraph(child, indent + 1);
-      child = getSceneGraphNode(child->nextSibling);
+      child = child->nextSibling;
     }
   }
 }
 
-void dumpMesh(glTF_exporter& exporter, struct SceneGraphNode *node, struct Mesh* mesh) {
+std::array<float, 16> convertMatrix(float* orig) {
+  std::array<float, 16> matrix;
+  matrix[0]  = orig[0];
+  matrix[1]  = orig[1];
+  matrix[2]  = orig[2];
+  matrix[3]  = 0.0;
+  matrix[4]  = orig[3];
+  matrix[5]  = orig[4];
+  matrix[6]  = orig[5];
+  matrix[7]  = 0.0;
+  matrix[8]  = orig[6];
+  matrix[9]  = orig[7];
+  matrix[10] = orig[8];
+  matrix[11] = 0.0;
+  matrix[12] = orig[9];
+  matrix[13] = orig[10];
+  matrix[14] = orig[11];
+  matrix[15] = 1.0;
+
+  return matrix;
+}
+
+void dumpMesh(glTF_exporter& exporter, Ptr<SceneGraphNode> node, struct Mesh* mesh) {
 
   // Get vertex buffer
   std::vector<float> vertices(mesh->num_vertices * 3);
@@ -147,39 +166,24 @@ void dumpMesh(glTF_exporter& exporter, struct SceneGraphNode *node, struct Mesh*
 
 
   // Convert transform matrix
-  std::array<float, 16> matrix;
-  matrix[0]  = node->baseTransformMatrix[0];
-  matrix[1]  = node->baseTransformMatrix[1];
-  matrix[2]  = node->baseTransformMatrix[2];
-  matrix[3]  = 0.0;
-  matrix[4]  = node->baseTransformMatrix[3];
-  matrix[5]  = node->baseTransformMatrix[4];
-  matrix[6]  = node->baseTransformMatrix[5];
-  matrix[7]  = 0.0;
-  matrix[8]  = node->baseTransformMatrix[6];
-  matrix[9]  = node->baseTransformMatrix[7];
-  matrix[10] = node->baseTransformMatrix[8];
-  matrix[11] = 0.0;
-  matrix[12] = node->baseTransformMatrix[9];
-  matrix[13] = node->baseTransformMatrix[10];
-  matrix[14] = node->baseTransformMatrix[11];
-  matrix[15] = 1.0;
+  auto matrix = convertMatrix(node->baseTransformMatrix);
+
 
   exporter.addNode(mesh_id, matrix);
 }
 
-void dumpSceneGraph(glTF_exporter& exporter, struct SceneGraphNode *node)
+void dumpSceneGraph(glTF_exporter& exporter, Ptr<SceneGraphNode> node)
 {
   if (node->objectIndex > 0) {
     dumpMesh(exporter, node, getMesh(node->objectIndex));
   }
 
-  struct SceneGraphNode *child = getSceneGraphNode(node->firstChild);
+  Ptr<SceneGraphNode> child = node->firstChild;
   for (int i = 0; i < node->numChildren; i++)
   {
     if (child != NULL) {
       dumpSceneGraph(exporter, child);
-      child = getSceneGraphNode(child->nextSibling);
+      child = child->nextSibling;
     }
   }
 }
@@ -199,11 +203,22 @@ void renderSceneGraphCallback(void* _uc, Address address, void* user_data)
   {
     printf("SceneGraph Hooked, Called from %x\n", return_addr);
 
-    struct SceneGraphNode *root = getSceneGraphNode(stack[1]);
-    PrintSceneGraph(root, 0);
+    auto transform_ptr = Ptr<Ptr<TransformInfo>>(0xdf7f2c);
+    auto transform = **transform_ptr;
+
+    auto root = Ptr<SceneGraphNode>(stack[1]);
+    //PrintSceneGraph(root, 0);
     if (s_dumping)
     {
       glTF_exporter exporter;
+
+      float znear = (*transform.Frustum)[1] * 1000;
+      float zfar  = (*transform.Frustum)[2] * 1000;
+      float yfov  = transform.fovY * (M_PI / 180.0);
+      auto matrix = convertMatrix(transform.ViewMatrix);
+
+      exporter.addCamera(transform.fovY, znear, zfar, transform.AspectRatio, matrix);
+
       dumpSceneGraph(exporter, root);
       exporter.dump();
       s_dumping = false;

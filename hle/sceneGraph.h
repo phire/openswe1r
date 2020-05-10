@@ -3,7 +3,36 @@
 #include <stdint.h>
 #include "../emulation.h"
 
+#include <array>
+
 #pragma pack(push)
+
+template <typename T>
+class Ptr {
+    Address ptr;
+public:
+    Ptr() {}
+
+    Ptr(Address addr) : ptr(addr) {}
+
+    T* data() {
+        return reinterpret_cast<T*>(Memory(ptr));
+    }
+
+    T* operator->() {
+        return data();
+    }
+
+
+
+    T operator*() {
+        return *data();
+    }
+
+    operator void*() const {
+        return Memory(ptr);
+    }
+};
 
 
 struct SceneGraphNode {
@@ -11,15 +40,16 @@ struct SceneGraphNode {
     uint32_t _ukn[32];
     int32_t objectIndex; // -1 when this node doesn't contain any drawable primitives
                          // Used to lookup the struct Mesh from the MeshPool
-    Address parent; // Pointer to Struct SceneGraphNode
+    Ptr<SceneGraphNode> parent; // Pointer to Struct SceneGraphNode
     uint32_t numChildren;
-    Address firstChild; // Pointer to Struct SceneGraphNode
-    Address nextSibling; // Pointer to Struct SceneGraphNode
+    Ptr<SceneGraphNode> firstChild; // Pointer to Struct SceneGraphNode
+    Ptr<SceneGraphNode> nextSibling; // Pointer to Struct SceneGraphNode
     uint32_t _ukn_9c;
     uint32_t _ukn_a0[8];
     float baseTransformMatrix[12];
     uint32_t extraTransformCount;
-    float extraTransformMatrix[];
+    float extraTransformMatrix[]; // Some nodes have an extra transform matrix, which appears to be
+                                  // applied to only the first extraTransformCount vertices
 };
 
 struct Mesh_Primitive {
@@ -82,6 +112,28 @@ struct Mesh {
     uint8_t  unk_8b;
     float ukn_8c;
     float ukn_90;
+};
+
+struct LightInfo {
+
+};
+
+struct TransformInfo {
+    int IsPrespective; // Seems to choose between an othro and perspective transform mode
+    uint32_t unk_4;
+    float ViewMatrix[12];
+    float fovY;
+    float unk_3c;
+    float AspectRatio;
+    float ukn_44;
+    Ptr<std::array<float, 16>> Frustum;
+    Ptr<uint32_t> TransformSingleFn;
+    Ptr<uint32_t> transformMultipleFn;
+    float ukn_84;
+    float ukn_88;
+    std::array<float, 4> ambientLight; // Added to per-vertex color at the end
+    uint32_t countLights;
+    Ptr<LightInfo> Lights;
 };
 
 #pragma pack(pop)
