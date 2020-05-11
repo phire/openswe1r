@@ -100,6 +100,10 @@ void glTF_exporter::dump()
             {
                 {"byteLength", index_buffer.size() * sizeof(uint32_t)},
                 {"uri", "test_idx.bin"}
+            },
+            {
+                {"byteLength", uv_buffer.size() * sizeof(float)},
+                {"uri", "test_uvs.bin"}
             }
         }},
         {"bufferViews", {
@@ -114,7 +118,13 @@ void glTF_exporter::dump()
                 {"byteLength", index_buffer.size() * sizeof(uint32_t)},
                 //{"byteStride", sizeof(uint32_t)},
                 {"name", "indexBuffer"}
-            }
+            },
+            {
+                {"buffer", 2},
+                {"byteLength", uv_buffer.size() * sizeof(float)},
+                //{"byteStride", 3 * sizeof(float)},
+                {"name", "vertexBuffer"}
+            },
         }},
         {"textures", textures},
         {"images", images},
@@ -140,6 +150,11 @@ void glTF_exporter::dump()
     {
         std::ofstream i_file("test_idx.bin", std::ios::out | std::ios::binary);
         i_file.write((char*)index_buffer.data(), index_buffer.size() * sizeof(uint32_t));
+    }
+
+    {
+        std::ofstream i_file("test_uvs.bin", std::ios::out | std::ios::binary);
+        i_file.write((char*)uv_buffer.data(), uv_buffer.size() * sizeof(float));
     }
 }
 
@@ -178,7 +193,7 @@ uint32_t glTF_exporter::addMesh(uint32_t idx,  std::vector<json> primitives) {
     return mesh_id;
 }
 
-json glTF_exporter::uploadVerties(std::vector<float> vertices) {
+json glTF_exporter::uploadVerties(std::vector<float> vertices, std::vector<float> uvs) {
     size_t pos_offset = vertex_buffer.size() * sizeof(float);
     size_t vertex_accessor = accessors.size();
 
@@ -191,6 +206,26 @@ json glTF_exporter::uploadVerties(std::vector<float> vertices) {
     });
 
     vertex_buffer.insert(vertex_buffer.end(), vertices.begin(), vertices.end());
+
+    if (uvs.size() > 0) {
+        size_t uv_accessor = accessors.size();
+        size_t uv_offset = uv_buffer.size() * sizeof(float);
+
+        accessors.push_back(json {
+            {"bufferView", 2},
+            {"byteOffset", uv_offset},
+            {"componentType", 5126}, // Float
+            {"count", uvs.size() / 2},
+            {"type", "VEC2"}
+        });
+
+        uv_buffer.insert(uv_buffer.end(), uvs.begin(), uvs.end());
+
+        return json {
+            {"POSITION", vertex_accessor},
+            {"TEXCOORD_0", uv_accessor}
+        };
+    }
 
     return json {
         {"POSITION", vertex_accessor}
@@ -252,11 +287,11 @@ int glTF_exporter::uploadTexture(Texture &tex) {
 
     materials.push_back(json {
         {"name", fmt::format("{}", tex.handle)},
-        {"pbrMetallicRoughness",
+        {"pbrMetallicRoughness", {
             {"baseColorTexture", {
                 {"index", texture_id}
             }}
-        }
+        }}
     });
 
     textureMaping[tex.handle] = mat_id;

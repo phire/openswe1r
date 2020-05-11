@@ -28,12 +28,6 @@ struct Mesh * getMesh(uint offset) {
   return (struct Mesh *) Memory(mesh_addr);
 }
 
-struct Mesh_Primitive *getMeshPrimitive(Address addr, size_t offset)
-{
-  struct Mesh_Primitive* array = (struct Mesh_Primitive*)Memory(addr);
-  return &array[offset];
-}
-
 void PrintMatrix(char *prefix, float* m)
 {
 
@@ -42,10 +36,8 @@ void PrintMatrix(char *prefix, float* m)
   printf("%s| %-f %-f %-f %-f |\n", prefix, m[2], m[5], m[8], m[11]);
 }
 
-void PrintPrimitive(char *prefix, struct Mesh_Primitive* prim)
+void PrintPrimitive(char *prefix, struct Mesh_Primitive &prim)
 {
-  if (prim == NULL)
-    return;
 //  printf("%s  %i indexes tex: %x\n", prefix, prim->indexCount, prim->texture_handle);
 }
 
@@ -56,7 +48,7 @@ void PrintDraw(char *prefix, struct Mesh* mesh)
   for (int i = 0; i < mesh->num_primitives; i++)
   {
 
-    PrintPrimitive(prefix, getMeshPrimitive(mesh->primitives, i));
+    PrintPrimitive(prefix, mesh->primitives[i]);
   }
 }
 
@@ -128,23 +120,38 @@ std::array<float, 16> convertMatrix(float* orig) {
 
 void dumpMesh(glTF_exporter& exporter, Ptr<SceneGraphNode> node, struct Mesh* mesh) {
 
+  // Get some (hopefully) universal data from the first primitive
+  unsigned vtx_format = mesh->primitives[0].vertex_format;
+  unsigned blending_mode = mesh->primitives[0].blending_mode;
+
+  bool has_uvs = vtx_format == 4;
+
   // Get vertex buffer
   std::vector<float> vertices(mesh->num_vertices * 3);
-  float *vtx = (float*)Memory(mesh->vertexData_ptr);
+  float *vtx = mesh->vertexData_ptr.data();
   memcpy(vertices.data(), vtx, mesh->num_vertices * sizeof(float) * 3);
 
-  json meshAttributes = exporter.uploadVerties(vertices);
+  // Get uvs
+  std::vector<float> uvs;
+  if (has_uvs)
+  {
+    uvs.resize(mesh->num_uvs * 2);
+    float *uv_data = mesh->uvData_ptr.data();
+    memcpy(uvs.data(), uv_data, mesh->num_uvs * sizeof(float) * 2);
+  }
+
+  json meshAttributes = exporter.uploadVerties(std::move(vertices), std::move(uvs));
 
   // Get all primitives
   std::vector<json> primitives;
 
   for (int i=0; i < mesh->num_primitives; i++)
   {
-    Mesh_Primitive* prim = getMeshPrimitive(mesh->primitives, i);
+    Mesh_Primitive &prim = mesh->primitives[i];
 
     int mat_id = -1;
 
-    auto material = *prim->material;
+    auto material = *prim.material;
     {
       if (material.num_textures == 1) {
         auto texture = *material.textures;
@@ -160,9 +167,9 @@ void dumpMesh(glTF_exporter& exporter, Ptr<SceneGraphNode> node, struct Mesh* me
     }
 
     // Get indices
-    std::vector<uint32_t> indices(prim->indexCount);
-    uint32_t *index = (uint32_t*)Memory(prim->IndexData_ptr);
-    memcpy(indices.data(), index, prim->indexCount * sizeof(uint32_t));
+    std::vector<uint32_t> indices(prim.indexCount);
+    uint32_t *index = (uint32_t*)Memory(prim.IndexData_ptr);
+    memcpy(indices.data(), index, prim.indexCount * sizeof(uint32_t));
 
     for (auto &idx : indices)
     {

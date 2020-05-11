@@ -22,7 +22,7 @@ public:
 
     uint32_t addMesh(uint32_t idx, std::vector<json> primitives);
     void addNode(uint32_t mesh_id, std::array<float, 16>);
-    json uploadVerties(std::vector<float> vertices);
+    json uploadVerties(std::vector<float> vertices, std::vector<float> uvs);
     json uploadPrimitive(std::vector<uint32_t> indices, json meshAccessor, int mat_id);
     int uploadTexture(Texture &tex);
 
@@ -46,5 +46,6 @@ private:
     std::map<uint32_t, int> textureMaping;
 
     std::vector<float> vertex_buffer;
+    std::vector<float> uv_buffer;
     std::vector<uint32_t> index_buffer;
 };

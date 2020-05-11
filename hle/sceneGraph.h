@@ -23,7 +23,9 @@ public:
         return data();
     }
 
-
+    T& operator[](size_t idx) {
+        return data()[idx];
+    }
 
     T operator*() {
         return *data();
@@ -170,18 +172,18 @@ struct Mesh {
     uint32_t visible; // maybe. The game only renders the mesh when this is non-zero.
                       // Always seems to be set to 4
     uint32_t max_blendmode;
-    Address vertexData_ptr;
-    Address colorData_ptr; // Just a guess
-    Address ukn_54;
-    Address uvData_ptr;
+    Ptr<float> vertexData_ptr;
+    Ptr<float> uvData_ptr; // Just a guess
+    Ptr<float> ukn_54;
+    Ptr<float> colorData;
     float ukn_5c;
     float ukn_60;
     float ukn_64;
     float ukn_68;
-    Address primitives; // Pointer to array of Mesh_Primitive objects
+    Ptr<Mesh_Primitive> primitives; // Pointer to array of Mesh_Primitive objects
     Address ukn_70;
     uint32_t num_vertices; // count of vertices in vertexData
-    uint32_t ukn_7c; // often seems to be the same as num_vertices
+    uint32_t num_uvs; // guess. Often seems to be the same as num_vertices
     uint32_t num_primitives;
     float    ukn_80; // Might be scale, might be distance from camera
     uint16_t render_count; // This gets decremented every time this mesh is drawn
