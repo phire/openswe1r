@@ -52,6 +52,86 @@ struct SceneGraphNode {
                                   // applied to only the first extraTransformCount vertices
 };
 
+struct textureInfo {
+    uint32_t ukn_0;
+    uint32_t ukn_4;
+    float ukn_8;
+    float ukn_c;
+    uint32_t ukn_10;
+    uint32_t ukn_14;
+    uint32_t ukn_18;
+    uint32_t ukn_1c;
+    uint32_t ukn_20;
+    uint32_t ukn_24;
+    uint32_t ukn_28;
+    uint32_t ukn_2c;
+    uint32_t ukn_30;
+    uint32_t ukn_34;
+    uint32_t ukn_38;
+    uint32_t ukn_3c;
+    uint32_t ukn_40;
+    uint32_t ukn_44;
+    uint32_t ukn_48;
+    uint32_t ukn_4c;
+    uint32_t ukn_50;
+    uint32_t ukn_54;
+    uint32_t ukn_58;
+    uint32_t ukn_5c;
+    uint32_t ukn_60;
+    uint32_t ukn_64;
+    uint32_t ukn_68;
+    uint32_t ukn_6c;
+    uint32_t ukn_70;
+    uint32_t ukn_74;
+    uint32_t ukn_78;
+    uint32_t direct3dtexture2; // guess
+    uint32_t ukn_80;
+    uint32_t ukn_84;
+    uint32_t ukn_88;
+    uint32_t ukn_8c;
+    uint32_t ukn_90;
+};
+
+struct MaterialInfo {
+    char name[8];
+    float ukn_8;
+    float ukn_c;
+    uint32_t ukn_10;
+    uint32_t ukn_14;
+    uint32_t ukn_18;
+    uint32_t ukn_1c;
+    uint32_t ukn_20;
+    uint32_t ukn_24;
+    uint32_t ukn_28;
+    uint32_t ukn_2c;
+    uint32_t ukn_30;
+    uint32_t ukn_34;
+    uint32_t ukn_38;
+    uint32_t ukn_3c;
+    uint32_t ukn_40;
+    uint32_t ukn_44;
+    uint32_t ukn_48;
+    uint32_t ukn_4c;
+    uint32_t ukn_50;
+    uint32_t ukn_54;
+    uint32_t ukn_58;
+    uint32_t ukn_5c;
+    uint32_t ukn_60;
+    uint32_t ukn_64;
+    uint32_t ukn_68;
+    uint32_t ukn_6c;
+    uint32_t ukn_70;
+    uint32_t ukn_74;
+    uint32_t ukn_78;
+    uint32_t ukn_7c;
+    uint32_t tex_width;
+    uint32_t tex_height;
+    uint32_t num_textures;
+    uint32_t unk_8c;
+    Ptr<textureInfo> textures; // Can be a pointer to multiple textures
+                               // But the rendering side of the engine doesn't appear to support this
+};
+
 struct Mesh_Primitive {
     uint32_t prim_idx; // This increments with every primitive or two in a mesh. Might be base_index?
     uint32_t rendering_flags; // Transparency and stuff
@@ -61,7 +141,7 @@ struct Mesh_Primitive {
     Address IndexData_ptr; // Pointer to array of uint32_t indices
     Address UvIndexData_ptr; // Used when vertex_format = 4 and blendmode < 3
                              // Otherwise vertex position and uv are linked to the main index
-    uint32_t texture_handle;
+    Ptr<MaterialInfo> material;
     uint32_t  unk_20;
 
     // allows the game to add an offset to texture coordinates

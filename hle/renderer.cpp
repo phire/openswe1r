@@ -14,8 +14,11 @@ extern "C" {
 
 #include <array>
 #include <cmath>
+#include <stdexcept>
 
 static bool s_dumping = false;
+static std::map<uint32_t, Texture> textures;
+
 
 static Address renderSceneGraph_fixup;
 
@@ -33,10 +36,6 @@ struct Mesh_Primitive *getMeshPrimitive(Address addr, size_t offset)
 
 void PrintMatrix(char *prefix, float* m)
 {
-  // // I suspect this matrix is ordered in another way
-  // printf("%s| %-f %-f %-f %-f |\n", prefix, m[0], m[1], m[2], m[3]);
-  // printf("%s| %-f %-f %-f %-f |\n", prefix, m[4], m[5], m[6], m[7]);
-  // printf("%s| %-f %-f %-f %-f |\n", prefix, m[8], m[9], m[10], m[11]);
 
   printf("%s| %-f %-f %-f %-f |\n", prefix, m[0], m[3], m[6], m[9]);
   printf("%s| %-f %-f %-f %-f |\n", prefix, m[1], m[4], m[7], m[10]);
@@ -143,6 +142,23 @@ void dumpMesh(glTF_exporter& exporter, Ptr<SceneGraphNode> node, struct Mesh* me
   {
     Mesh_Primitive* prim = getMeshPrimitive(mesh->primitives, i);
 
+    int mat_id = -1;
+
+    auto material = *prim->material;
+    {
+      if (material.num_textures == 1) {
+        auto texture = *material.textures;
+        auto texture_handle = texture.direct3dtexture2;
+
+        auto actual_texture = textures[texture_handle];
+
+        if (actual_texture.width * actual_texture.height != 0)
+        {
+          mat_id = exporter.uploadTexture(actual_texture);
+        }
+      }
+    }
+
     // Get indices
     std::vector<uint32_t> indices(prim->indexCount);
     uint32_t *index = (uint32_t*)Memory(prim->IndexData_ptr);
@@ -157,13 +173,11 @@ void dumpMesh(glTF_exporter& exporter, Ptr<SceneGraphNode> node, struct Mesh* me
       }
     }
 
-    primitives.push_back(exporter.uploadPrimitive(indices, meshAttributes));
+    primitives.push_back(exporter.uploadPrimitive(indices, meshAttributes, mat_id));
   }
 
 
-
   uint32_t mesh_id = exporter.addMesh(mesh->this_offset, primitives);
-
 
   // Convert transform matrix
   auto matrix = convertMatrix(node->baseTransformMatrix);
@@ -242,12 +256,6 @@ void InitRenderer() {
   Address halt = PatchHlt(0x48f180, &renderSceneGraph_fixup, 5);
 
   uint8_t *code = (uint8_t*)Memory(renderSceneGraph_fixup);
-  printf("Fixup: ");
-
-  for(int i = 0; i < 12; i++)
-    printf("%02x ", code[i]);
-
-  printf("\n");
 
   AddHltHandler(halt, renderSceneGraphCallback, 0);
 
@@ -256,4 +264,55 @@ void InitRenderer() {
 
 void Renderer_DumpFrame() {
   s_dumping = true;
+}
+
+void Renderer_UploadTexture(uint32_t handle, texture_format format, int width, int height, void* data)
+{
+  auto expand5 = [] (uint16_t data) {
+    return (data & 0x1f) << 3 | (data & 0x1f) >> 2;
+  };
+  auto expand4 = [] (uint16_t data) {
+    return (data & 0x0f) << 4 | (data & 0x0f);
+  };
+  auto expand1 = [] (uint16_t data) {
+    if ((data & 1) != 0)
+      return 0xff;
+    return 0x00;
+  };
+
+  Texture tex;
+  tex.width = width;
+  tex.height = height;
+  tex.handle = handle;
+  for (int i=0; i <= width*height; i++) {
+    switch (format) {
+      case RGBA_8888:
+        tex.data.push_back(((uint32_t*)data)[i]);
+        break;
+      case BGRA_5551: {
+        uint16_t pixel = ((uint16_t*)data)[i];
+
+        uint32_t r = expand5(pixel >> 10);
+        uint32_t g = expand5(pixel >> 5);
+        uint32_t b = expand5(pixel);
+        uint32_t a = expand1(pixel >> 15);
+
+        tex.data.push_back(a << 24 | b << 16 | g << 8| r);
+        break;
+      }
+      case BGRA_4444: {
+        uint16_t pixel = ((uint16_t*)data)[i];
+
+        uint32_t r = expand4(pixel >> 8);
+        uint32_t g = expand4(pixel >> 4);
+        uint32_t b = expand4(pixel);
+        uint32_t a = expand4(pixel >> 12);
+
+        tex.data.push_back(a << 24 | b << 16 | g << 8| r);
+        break;
+      }
+    }
+  }
+
+  textures[handle] = std::move(tex);
 }

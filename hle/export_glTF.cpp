@@ -1,6 +1,7 @@
 
 
 #include "export_glTF.h"
+#include "write_png.h"
 
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
@@ -14,6 +15,8 @@ using json = nlohmann::json;
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <fmt/format.h>
 
 namespace glm
 {
@@ -113,7 +116,10 @@ void glTF_exporter::dump()
                 {"name", "indexBuffer"}
             }
         }},
+        {"textures", textures},
+        {"images", images},
         {"cameras", cameras},
+        {"materials", materials},
         {"accessors", accessors},
         {"meshes", meshes},
         {"nodes", nodes}
@@ -191,7 +197,7 @@ json glTF_exporter::uploadVerties(std::vector<float> vertices) {
     };
 }
 
-json glTF_exporter::uploadPrimitive(std::vector<uint32_t> indices, json meshAttributes) {
+json glTF_exporter::uploadPrimitive(std::vector<uint32_t> indices, json meshAttributes, int mat_id) {
     size_t offset = index_buffer.size() * sizeof(uint32_t);
     size_t index_accessor = accessors.size();
 
@@ -205,11 +211,56 @@ json glTF_exporter::uploadPrimitive(std::vector<uint32_t> indices, json meshAttr
 
     index_buffer.insert(index_buffer.end(), indices.begin(), indices.end());
 
-    return json {
+    json j {
         {"indices", index_accessor},
         {"attributes", meshAttributes},
+
         {"mode", 4}
     };
+
+    if (mat_id >= 0)
+        j["material"] = mat_id;
+
+    return j;
+}
+
+int glTF_exporter::uploadTexture(Texture &tex) {
+    auto it = textureMaping.find(tex.handle);
+    if (it != textureMaping.end()) {
+        return it->second;
+    }
+
+    // FIXME: less than ideal, would like a stable filename
+    auto path = fmt::format("textures/{}.png", tex.handle);
+
+    writeImage(path, tex.width, tex.height, tex.data);
+
+    size_t image_id = images.size();
+
+    images.push_back(json {
+        {"uri", path}
+    });
+
+    size_t texture_id = textures.size();
+
+    textures.push_back(json {
+        //{"sampler", 0},
+        {"source", image_id}
+    });
+
+    size_t mat_id = materials.size();
+
+    materials.push_back(json {
+        {"name", fmt::format("{}", tex.handle)},
+        {"pbrMetallicRoughness",
+            {"baseColorTexture", {
+                {"index", texture_id}
+            }}
+        }
+    });
+
+    textureMaping[tex.handle] = mat_id;
+    return mat_id;
 }
 
 void glTF_exporter::addCamera(float yfov, float znear, float zfar, float aspectRatio, std::array<float, 16> matrix) {

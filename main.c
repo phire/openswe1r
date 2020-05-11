@@ -2450,6 +2450,10 @@ HACKY_COM_BEGIN(IDirectDrawSurface4, 32)
 
   API(Direct3DTexture2)* texture = (API(Direct3DTexture2)*)Memory(this->texture);
 
+
+  int textureFormat;
+
+
   GLint previousTexture = 0;
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
   glBindTexture(GL_TEXTURE_2D, texture->handle);
@@ -2458,15 +2462,20 @@ HACKY_COM_BEGIN(IDirectDrawSurface4, 32)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   if (desc->ddpfPixelFormat.dwRGBBitCount == 32) {
+    textureFormat = RGBA_8888;
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, desc->dwWidth, desc->dwHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, Memory(desc->lpSurface));
   } else {
     if (desc->ddpfPixelFormat.dwRGBAlphaBitMask == 0x8000) {
+      textureFormat = BGRA_5551;
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, desc->dwWidth, desc->dwHeight, 0, GL_BGRA, GL_UNSIGNED_SHORT_1_5_5_5_REV, Memory(desc->lpSurface));
     } else {
+      textureFormat = BGRA_4444;
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, desc->dwWidth, desc->dwHeight, 0, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, Memory(desc->lpSurface));
     }
   }
   glBindTexture(GL_TEXTURE_2D, previousTexture);
+
+  Renderer_UploadTexture(this->texture, textureFormat, desc->dwWidth, desc->dwHeight, Memory(desc->lpSurface));
 
 //Hack: part 2: don't free this to keep data in RAM. see lock for part 1
 #if 0
